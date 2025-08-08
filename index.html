@@ -21,7 +21,7 @@ if (btnVoiceFemale && btnVoiceMale){
 }
 
 // Map voices by accent + gender
-function pickGoogleVoice(accent, gender='female'){
+window.pickGoogleVoice = function(accent, gender='female'){
   const isGB = /British|UK|en-GB/i.test(accent);
   const key = (isGB ? 'gb' : 'us') + ':' + (gender || 'female');
   const map = {
@@ -33,6 +33,23 @@ function pickGoogleVoice(accent, gender='female'){
   return map[key] || (isGB ? 'en-GB-Neural2-C' : 'en-US-Neural2-F');
 }
 
+
+// Attempt to keep voice toggle on the same row as accent-select
+(function(){
+  const accent = document.getElementById('accent-select');
+  const toggle = document.getElementById('voice-toggle');
+  if (accent && toggle){
+    const parent = accent.closest('.flex, .row, .controls, .control-row, .toolbar, .flex-row') || accent.parentElement;
+    if (parent && !parent.contains(toggle)){
+      parent.appendChild(toggle);
+      // Ensure row style
+      parent.style.display = parent.style.display || 'flex';
+      parent.style.alignItems = parent.style.alignItems || 'center';
+      parent.style.flexWrap = parent.style.flexWrap || 'wrap';
+      parent.style.gap = parent.style.gap || '8px';
+    }
+  }
+})();
 </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -795,7 +812,7 @@ const TTS_API_URL = BACKEND_BASE_URL + "/api/tts";
                       ? `<speak>${parts.join('<break time="180ms"/>')}</speak>`
                       : `<speak><prosody rate="0.95">${parts.join('<break time="350ms"/>')}</prosody></speak>`;
                 };
-                const voice = pickGoogleVoice(accent, selectedVoiceGender); // default female per your request
+                const voice = window.pickGoogleVoice(accent, selectedVoiceGender); // default female per your request
                 const rate = isNatural ? 1.0 : 0.95;
                 const pitch = isNatural ? -1 : -2;
                 const ssml = buildSSML(text, currentThoughtGroups && currentThoughtGroups.length ? currentThoughtGroups : [text], isNatural);
