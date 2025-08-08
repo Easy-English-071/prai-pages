@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PrAI - Backend Strict (Google Neural2 + Gemini 1.5 Pro)</title>
+  <style>
+    :root{--bg:#0f1115;--card:#161a22;--muted:#9aa4b2;--text:#e6ebf2;--accent:#6aa3ff;--border:#222838}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .container{max-width:900px;margin:32px auto;padding:0 16px}
+    h1{font-size:24px;margin:0 0 8px} .muted{color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:16px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .input, select, textarea{background:#0c0f14;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+    textarea{width:100%;resize:vertical}
+    .btn{background:var(--accent);color:#0c0f14;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.alt{background:#2d74ff;color:#fff}
+    .btn.outline{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+    .notice{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0c0f14;min-height:20px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    pre{background:#0c0f14;border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-height:64px;white-space:pre-wrap}
+    #badge{position:fixed;right:10px;bottom:10px;padding:6px 10px;border-radius:8px;background:#0c0f14;color:#9aa4b2;border:1px solid #222838;font:12px/1.2 system-ui}
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>PrAI — Bản chạy chắc (Google TTS + Gemini Pro)</h1>
+    <p class="muted">Luôn dùng Google TTS (Neural2) & Gemini 1.5 Pro. Không dùng giọng trình duyệt.</p>
+
+    <section class="card">
+      <label for="text" class="muted">Câu cần luyện</label>
+      <textarea id="text" rows="3">I think we should probably book the tickets online before Friday.</textarea>
+
+      <div class="row" style="margin-top:8px">
+        <label for="accent" class="muted">Accent:</label>
+        <select id="accent">
+          <option value="en-GB" selected>Anh — en-GB</option>
+          <option value="en-US">Mỹ — en-US</option>
+        </select>
+        <button id="btn-natural" class="btn">🔊 Nghe tự nhiên</button>
+        <button id="btn-clear" class="btn alt">🗣️ Nghe rõ từng cụm</button>
+        <button id="btn-ipa" class="btn outline">🧠 Lấy IPA & thought groups</button>
+      </div>
+
+      <div id="notice" class="notice"></div>
+
+      <div class="grid">
+        <div>
+          <h3 style="margin:12px 0 6px">IPA</h3>
+          <pre id="ipa">—</pre>
+        </div>
+        <div>
+          <h3 style="margin:12px 0 6px">Thought groups</h3>
+          <pre id="groups">—</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="badge">TTS: Google Neural2</div>
+
+  <script>
+    // ====== CONFIG ======
+    const BACKEND_BASE_URL = "https://prai-backend.vercel.app"; // your Vercel domain
+    const TEXT_API_URL = BACKEND_BASE_URL + "/api/text";
+    const TTS_API_URL  = BACKEND_BASE_URL + "/api/tts";
+
+    // ====== HELPERS ======
+    const $ = (id) => document.getElementById(id);
+    const show = (msg, type="info") => { $('notice').textContent = msg || ""; };
+    function safeJSON(text){
+      try { return JSON.parse(text); } catch(e){
+        const m = text && text.match && text.match(/\{[\s\S]*\}/);
+        if (m) return JSON.parse(m[0]);
+        throw new Error("JSON không hợp lệ: " + e.message);
+      }
+    }
+
+    function buildSSML(text, groups, natural=true){
+      if (!groups || !groups.length) return `<speak>${text}</speak>`;
+      const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const parts = groups.map(esc);
+      return natural
+        ? `<speak>${parts.join('<break time="180ms"/>')}</speak>`
+        : `<speak><prosody rate="0.95">${parts.join('<break time="350ms"/>')}</prosody></speak>`;
+    }
+
+    function pickVoice(accent){
+      return /en-GB/i.test(accent) ? 'en-GB-Neural2-C' : 'en-US-Neural2-F'; // female by default
+    }
+
+    async function speak(natural=true){
+      const text = $('text').value.trim();
+      const accent = $('accent').value;
+      if (!text) return;
+      try{
+        show("Đang tổng hợp giọng (Google Neural2)…");
+        // try to reuse groups already on UI
+        const groupsText = $('groups').textContent;
+        const groups = (groupsText && groupsText !== '—') ? groupsText.split('|').map(s=>s.trim()).filter(Boolean) : [text];
+
+        const body = {
+          ssml: buildSSML(text, groups, natural),
+          voice: pickVoice(accent),
+          rate: natural ? 1.0 : 0.95,
+          pitch: natural ? -1 : -2
+        };
+        const r = await fetch(TTS_API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if (!r.ok){
+          const t = await r.text(); throw new Error(t);
+        }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url); audio.play();
+        show("OK — đang phát bằng Google Neural2.");
+      }catch(err){
+        console.error(err);
+        show("TTS lỗi: " + (err?.message || err));
+      }
+    }
+
+    async function getIPA(){
+      const text = $('text').value.trim();
+      if (!text) return;
+      try{
+        show("Đang phân tích IPA & thought groups…");
+        const prompt = [
+          "Bạn là chuyên gia dạy phát âm tiếng Anh cho người Việt.",
+          "Trả về JSON duy nhất theo mẫu:",
+          "{",
+          '  "ipa": "<IPA của câu, theo accent>",',
+          '  "thought_groups": ["...", "..."]',
+          "}",
+          "Yêu cầu:",
+          "- Không giải thích ngoài JSON.",
+          '- Không để từ chức năng lẻ loi ở cuối cụm.',
+          "Văn bản: <<<" + text + ">>>"
+        ].join("\n");
+
+        const payload = {
+          model: "gemini-1.5-pro",
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0,
+            topK: 1,
+            topP: 0.1,
+            candidateCount: 1
+          },
+          contents: [{ role: "user", parts: [{ text: prompt }]}]
+        };
+
+        const r = await fetch(TEXT_API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const t = await r.text();
+        if (!r.ok) throw new Error(t);
+        const data = safeJSON(t);
+        let out = "";
+        try { out = data.candidates[0].content.parts[0].text; } catch {}
+        const parsed = safeJSON(out);
+        $('ipa').textContent = parsed.ipa || "—";
+        $('groups').textContent = (parsed.thought_groups || []).join(' | ') || "—";
+        show("Đã lấy IPA & thought groups.");
+      }catch(err){
+        console.error(err);
+        show("Lỗi phân tích: " + (err?.message || err));
+      }
+    }
+
+    window.addEventListener('load', () => {
+      $('btn-natural').addEventListener('click', ()=>speak(true));
+      $('btn-clear').addEventListener('click', ()=>speak(false));
+      $('btn-ipa').addEventListener('click', getIPA);
+    });
+  </script>
+</body>
+</html>
