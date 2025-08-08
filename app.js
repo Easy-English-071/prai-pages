@@ -3,7 +3,7 @@
 // Nếu bạn đã deploy backend (Vercel/Cloudflare) theo mẫu mình gửi lúc trước,
 // đặt BASE_URL = 'https://<tên-miền-backend>'.
 // Nếu để chuỗi rỗng '', app sẽ dùng giọng trình duyệt (fallback).
-const BACKEND_BASE_URL = '';
+const BACKEND_BASE_URL = "https://prai-backend.vercel.app";
 
 // Map giọng Google Cloud TTS (Neural2) nếu dùng backend
 const GOOGLE_VOICES = {
