@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PrAI — Bản GitHub Pages (TTS chuẩn Google qua backend, fallback trình duyệt)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>PrAI — Bản GitHub Pages</h1>
+    <p class="muted">
+      Bản này chạy thuần tĩnh (GitHub Pages). Để dùng <strong>giọng Google Neural2</strong> cần khai báo <code>BACKEND_BASE_URL</code> trong <code>app.js</code> trỏ về backend (Vercel/Cloudflare). Nếu để trống, app sẽ dùng <em>giọng trình duyệt</em> để chạy tạm.
+    </p>
+
+    <section class="card">
+      <label class="label">Câu cần luyện:</label>
+      <textarea id="text-input" rows="3" class="input" placeholder="Nhập câu tiếng Anh bạn muốn luyện...">I think we should probably book the tickets online before Friday.</textarea>
+
+      <div class="grid">
+        <div>
+          <label class="label">Accent (giọng):</label>
+          <select id="accent" class="input">
+            <option value="en-GB" selected>Anh - en-GB</option>
+            <option value="en-US">Mỹ - en-US</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Giọng nam / nữ:</label>
+          <select id="gender" class="input">
+            <option value="female" selected>Nữ</option>
+            <option value="male">Nam</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btn-natural" class="btn">🔊 Nghe giọng tự nhiên</button>
+        <button id="btn-clear" class="btn btn-secondary">🗣️ Nghe bản rõ từng cụm</button>
+        <button id="btn-analyze" class="btn btn-outline">🧠 Lấy IPA & thought groups</button>
+      </div>
+
+      <div id="notice" class="notice"></div>
+
+      <div class="results">
+        <div>
+          <h3>IPA (chuẩn tham khảo)</h3>
+          <pre id="ipa" class="code">—</pre>
+        </div>
+        <div>
+          <h3>Thought groups</h3>
+          <pre id="groups" class="code">—</pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p class="muted small">
+        Mẹo: Để dùng giọng Google Neural2, hãy deploy backend mẫu (mình sẽ setup ở bước kế tiếp) rồi cập nhật <code>BACKEND_BASE_URL</code> trong <code>app.js</code>.
+      </p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
